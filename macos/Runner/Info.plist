@@ -28,5 +28,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Bu uygulama ses kayıtları yapmak için mikrofona erişim gerektirir.</string>
 </dict>
 </plist>

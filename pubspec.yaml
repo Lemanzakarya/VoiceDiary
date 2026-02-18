@@ -37,16 +37,19 @@ dependencies:
   
   # Audio recording
   record: ^5.1.2
-  permission_handler: ^11.3.1
   
   # Audio playback
   just_audio: ^0.9.40
+  
+  # Permissions
+  permission_handler: ^11.3.1
   
   # File system
   path_provider: ^2.1.4
   
   # Local database
   sqflite: ^2.3.3+1
+  path: ^1.9.0
   
   # State management
   provider: ^6.1.2
@@ -56,6 +59,10 @@ dependencies:
   
   # Date formatting
   intl: ^0.19.0
+
+dependency_overrides:
+  record_linux: ^1.0.0
+  record_platform_interface: ^1.5.0
 
 dev_dependencies:
   flutter_test:
