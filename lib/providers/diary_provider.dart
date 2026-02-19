@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
 import '../models/diary_entry.dart';
 import '../services/database_service.dart';
+import '../services/api_service.dart';
 
 class DiaryProvider extends ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
+  final ApiService _apiService = ApiService();
 
   List<DiaryEntry> _entries = [];
   bool _isLoading = false;
   String? _error;
+  bool _backendAvailable = false;
 
   List<DiaryEntry> get entries => _entries;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get backendAvailable => _backendAvailable;
+
+  /// Check if backend is reachable
+  Future<void> checkBackend() async {
+    _backendAvailable = await _apiService.isAvailable();
+    notifyListeners();
+  }
 
   /// Load all diary entries from the database
   Future<void> loadEntries() async {

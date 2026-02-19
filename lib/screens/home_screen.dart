@@ -23,7 +23,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DiaryProvider>().loadEntries();
+      final provider = context.read<DiaryProvider>();
+      provider.loadEntries();
+      provider.checkBackend();
     });
   }
 
@@ -155,9 +157,32 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Ses Günlüğüm'),
         actions: [
+          // Backend status indicator
+          Consumer<DiaryProvider>(
+            builder: (context, provider, _) {
+              return Tooltip(
+                message: provider.backendAvailable
+                    ? 'AI Sunucusu: Bağlı'
+                    : 'AI Sunucusu: Bağlantı yok',
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Icons.cloud,
+                    color: provider.backendAvailable
+                        ? Colors.green
+                        : Colors.grey[400],
+                    size: 20,
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => context.read<DiaryProvider>().loadEntries(),
+            onPressed: () {
+              context.read<DiaryProvider>().loadEntries();
+              context.read<DiaryProvider>().checkBackend();
+            },
           ),
         ],
       ),

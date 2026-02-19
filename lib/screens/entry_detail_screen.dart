@@ -6,6 +6,8 @@ import 'dart:io';
 import '../models/diary_entry.dart';
 import '../services/audio_player_service.dart';
 import '../services/database_service.dart';
+import '../services/api_service.dart';
+import 'processing_screen.dart';
 
 class EntryDetailScreen extends StatefulWidget {
   final DiaryEntry entry;
@@ -101,6 +103,34 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
     super.dispose();
   }
 
+  Future<void> _analyzeWithAI() async {
+    // Stop playing if active
+    await _playerService.stop();
+
+    final apiService = ApiService();
+    final available = await apiService.isAvailable();
+
+    if (!available && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('AI sunucusu bağlantısı kurulamadı'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              ProcessingScreen(audioFilePath: _entry.audioFilePath),
+        ),
+      );
+    }
+  }
+
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -169,6 +199,10 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
             // Audio Player
             _buildAudioPlayer(),
             const SizedBox(height: 16),
+
+            // AI Analysis Button (for non-analyzed entries)
+            if (!_entry.isAnalyzed) _buildAnalyzeButton(),
+            if (!_entry.isAnalyzed) const SizedBox(height: 16),
 
             // Transcription
             _buildTranscriptionCard(),
@@ -447,6 +481,45 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                 Colors.orange,
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnalyzeButton() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: _analyzeWithAI,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.blue.shade400,
+                Colors.purple.shade400,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.auto_awesome, color: Colors.white, size: 28),
+              SizedBox(width: 12),
+              Text(
+                'AI ile Analiz Et',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

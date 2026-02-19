@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart' show openAppSettings;
 import '../services/recording_service.dart';
 import '../services/database_service.dart';
+import '../services/api_service.dart';
 import '../models/diary_entry.dart';
+import 'processing_screen.dart';
 import 'dart:async';
 
 class RecordingScreen extends StatefulWidget {
@@ -15,6 +17,7 @@ class RecordingScreen extends StatefulWidget {
 class _RecordingScreenState extends State<RecordingScreen> {
   final RecordingService _recordingService = RecordingService();
   final DatabaseService _databaseService = DatabaseService();
+  final ApiService _apiService = ApiService();
   
   bool _isRecording = false;
   bool _isPaused = false;
@@ -133,7 +136,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
     _stopTimer();
     
     if (audioPath != null) {
-      // Save to database
+      // Save to local database first
       final entry = DiaryEntry(
         audioFilePath: audioPath,
         createdAt: DateTime.now(),
@@ -147,11 +150,26 @@ class _RecordingScreenState extends State<RecordingScreen> {
         _recordingDuration = 0;
       });
 
-      if (mounted) {
+      if (!mounted) return;
+
+      // Check if backend is available for AI analysis
+      final backendAvailable = await _apiService.isAvailable();
+
+      if (backendAvailable && mounted) {
+        // Navigate to processing screen for AI analysis
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProcessingScreen(audioFilePath: audioPath),
+          ),
+        );
+      } else if (mounted) {
+        // Backend not available - just save locally
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Kayıt başarıyla kaydedildi'),
-            backgroundColor: Colors.green,
+            content: Text('Kayıt kaydedildi (AI analizi için sunucu bağlantısı gerekli)'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
           ),
         );
         Navigator.pop(context, true);
