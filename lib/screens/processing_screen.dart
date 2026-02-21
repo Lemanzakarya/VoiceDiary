@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import '../models/diary_entry.dart';
 import '../services/api_service.dart';
+import '../providers/diary_provider.dart';
 import 'result_screen.dart';
 
 class ProcessingScreen extends StatefulWidget {
   final String audioFilePath;
+  final int? localEntryId;
 
-  const ProcessingScreen({super.key, required this.audioFilePath});
+  const ProcessingScreen({
+    super.key,
+    required this.audioFilePath,
+    this.localEntryId,
+  });
 
   @override
   State<ProcessingScreen> createState() => _ProcessingScreenState();
@@ -93,6 +100,15 @@ class _ProcessingScreenState extends State<ProcessingScreen>
       final analyzedEntry = await _pollWithStepUpdates(_backendEntryId!);
 
       if (analyzedEntry != null && mounted) {
+        // Save AI results back to local database
+        if (widget.localEntryId != null) {
+          final localEntry = analyzedEntry.copyWith(
+            id: widget.localEntryId,
+            audioFilePath: widget.audioFilePath,
+          );
+          await context.read<DiaryProvider>().updateEntry(localEntry);
+        }
+
         // Navigate to result screen
         Navigator.pushReplacement(
           context,

@@ -37,7 +37,7 @@ class DiaryEntry {
       audioFilePath: map['audioFilePath'] as String,
       transcriptionText: map['transcriptionText'] as String?,
       sentimentLabel: map['sentimentLabel'] as String?,
-      sentimentScore: map['sentimentScore'] as double?,
+      sentimentScore: (map['sentimentScore'] as num?)?.toDouble(),
       aiFeedback: map['aiFeedback'] as String?,
       createdAt: DateTime.parse(map['createdAt'] as String),
     );

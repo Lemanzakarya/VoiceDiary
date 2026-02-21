@@ -124,8 +124,10 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) =>
-              ProcessingScreen(audioFilePath: _entry.audioFilePath),
+          builder: (context) => ProcessingScreen(
+            audioFilePath: _entry.audioFilePath,
+            localEntryId: _entry.id,
+          ),
         ),
       );
     }

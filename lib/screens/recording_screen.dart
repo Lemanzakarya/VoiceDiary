@@ -142,7 +142,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
         createdAt: DateTime.now(),
       );
       
-      await _databaseService.insertEntry(entry);
+      final localId = await _databaseService.insertEntry(entry);
       
       setState(() {
         _isRecording = false;
@@ -160,7 +160,10 @@ class _RecordingScreenState extends State<RecordingScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => ProcessingScreen(audioFilePath: audioPath),
+            builder: (context) => ProcessingScreen(
+              audioFilePath: audioPath,
+              localEntryId: localId,
+            ),
           ),
         );
       } else if (mounted) {

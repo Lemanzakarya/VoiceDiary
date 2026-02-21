@@ -4,8 +4,15 @@ import 'package:http/http.dart' as http;
 import '../models/diary_entry.dart';
 
 class ApiService {
-  // iOS simulator uses localhost, Android emulator uses 10.0.2.2
-  static const String _baseUrl = 'http://127.0.0.1:8000';
+  /// Platform-aware base URL
+  /// iOS simulator / macOS / physical device → 127.0.0.1
+  /// Android emulator → 10.0.2.2
+  static String get _baseUrl {
+    try {
+      if (Platform.isAndroid) return 'http://10.0.2.2:8000';
+    } catch (_) {}
+    return 'http://127.0.0.1:8000';
+  }
 
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
