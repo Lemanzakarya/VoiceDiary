@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart' show openAppSettings;
+import 'package:url_launcher/url_launcher.dart';
 import '../services/recording_service.dart';
 import '../services/database_service.dart';
 import '../services/api_service.dart';
 import '../models/diary_entry.dart';
 import 'processing_screen.dart';
 import 'dart:async';
+import 'dart:io' show Platform;
 
 class RecordingScreen extends StatefulWidget {
   const RecordingScreen({super.key});
@@ -14,21 +15,39 @@ class RecordingScreen extends StatefulWidget {
   State<RecordingScreen> createState() => _RecordingScreenState();
 }
 
-class _RecordingScreenState extends State<RecordingScreen> {
+class _RecordingScreenState extends State<RecordingScreen>
+    with WidgetsBindingObserver {
   final RecordingService _recordingService = RecordingService();
   final DatabaseService _databaseService = DatabaseService();
   final ApiService _apiService = ApiService();
   
   bool _isRecording = false;
   bool _isPaused = false;
+  bool _waitingForPermission = false;
   int _recordingDuration = 0;
   Timer? _timer;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _recordingService.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When user returns from Settings, re-check permission automatically
+    if (state == AppLifecycleState.resumed && _waitingForPermission) {
+      _waitingForPermission = false;
+      _startRecording();
+    }
   }
 
   void _startTimer() {
@@ -52,11 +71,20 @@ class _RecordingScreenState extends State<RecordingScreen> {
   }
 
   Future<void> _startRecording() async {
-    // hasPermission() does both:
-    // - First time: shows iOS system permission dialog
-    // - Already granted: returns true immediately
-    // - Previously denied: returns false (no dialog on iOS)
-    final hasPermission = await _recordingService.hasPermission();
+    bool hasPermission;
+    try {
+      hasPermission = await _recordingService.hasPermission();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Mikrofon izni kontrol edilemedi: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
     
     if (!hasPermission) {
       if (mounted) {
@@ -76,7 +104,6 @@ class _RecordingScreenState extends State<RecordingScreen> {
               TextButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  // Open app settings so user can enable microphone
                   _openSettings();
                 },
                 child: const Text('Ayarlara Git'),
@@ -108,7 +135,29 @@ class _RecordingScreenState extends State<RecordingScreen> {
   }
 
   Future<void> _openSettings() async {
-    await openAppSettings();
+    _waitingForPermission = true;
+    // Open platform-specific app settings
+    final Uri settingsUri;
+    if (Platform.isIOS) {
+      settingsUri = Uri.parse('app-settings:');
+    } else if (Platform.isAndroid) {
+      settingsUri = Uri.parse('package:com.example.voice_diary');
+    } else {
+      // macOS / others - open System Preferences
+      settingsUri = Uri.parse('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
+    }
+    try {
+      await launchUrl(settingsUri);
+    } catch (_) {
+      // Fallback: just set the flag, user needs to open settings manually
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Lütfen cihaz ayarlarından mikrofon iznini manuel olarak açın.'),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _pauseRecording() async {

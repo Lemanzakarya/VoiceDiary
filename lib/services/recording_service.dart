@@ -13,12 +13,13 @@ class RecordingService {
   /// Checks and requests microphone permission.
   /// On first call, shows system dialog.
   /// Returns true if granted, false otherwise.
+  /// Throws an exception if the check itself fails (platform error).
   Future<bool> hasPermission() async {
     try {
       return await _audioRecorder.hasPermission();
     } catch (e) {
       print('Error checking permission: $e');
-      return false;
+      rethrow;
     }
   }
 
