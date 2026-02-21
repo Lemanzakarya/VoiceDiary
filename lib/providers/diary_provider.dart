@@ -96,6 +96,44 @@ class DiaryProvider extends ChangeNotifier {
     }
   }
 
+  /// Filter entries by sentiment label
+  Future<void> filterBySentiment(String? sentiment) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      if (sentiment == null || sentiment.isEmpty) {
+        _entries = await _databaseService.getAllEntries();
+      } else {
+        _entries = await _databaseService.getEntriesBySentiment(sentiment);
+      }
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Filtreleme sırasında hata oluştu: $e';
+      notifyListeners();
+    }
+  }
+
+  /// Filter entries by date range
+  Future<void> filterByDateRange(DateTime start, DateTime end) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      _entries = await _databaseService.getEntriesByDateRange(start, end);
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Filtreleme sırasında hata oluştu: $e';
+      notifyListeners();
+    }
+  }
+
   /// Get entries count
   Future<int> getEntriesCount() async {
     return await _databaseService.getEntriesCount();
