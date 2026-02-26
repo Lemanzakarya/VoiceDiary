@@ -12,7 +12,9 @@ from database import get_session, init_db
 from models import DiaryEntry
 from ai_service import get_ai_service
 
-load_dotenv()
+# Load .env from the same directory as this file (works with --app-dir)
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(_backend_dir, ".env"))
 
 app = FastAPI(
     title="AI Voice Diary API",
@@ -29,8 +31,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configuration
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
+# Configuration – resolve relative to backend directory
+_upload_dir_raw = os.getenv("UPLOAD_DIR", "uploads")
+UPLOAD_DIR = _upload_dir_raw if os.path.isabs(_upload_dir_raw) else os.path.join(_backend_dir, _upload_dir_raw)
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 52428800))  # 50MB
 ALLOWED_EXTENSIONS = {".m4a", ".mp3", ".wav", ".aac"}
 
@@ -50,10 +53,13 @@ def startup():
         print(f"⚠️  AI Service initialization failed: {e}")
         print("   API will work without AI features")
 
-def process_audio_with_ai(entry_id: int, audio_path: str):
-    """Background task to process audio with AI"""
+def _run_ai_processing(entry_id: int, audio_path: str):
+    """Actual AI work — runs in a separate thread."""
+    import traceback as _tb
     try:
-        print(f"🤖 Starting AI processing for entry {entry_id}")
+        import time as _time
+        t_start = _time.time()
+        print(f"🤖 Starting AI processing for entry {entry_id}", flush=True)
         
         # Get AI service
         ai_service = get_ai_service()
@@ -72,13 +78,14 @@ def process_audio_with_ai(entry_id: int, audio_path: str):
                 entry.sentiment_score = ai_results["sentiment_score"]
                 entry.ai_feedback = ai_results["ai_feedback"]
                 session.commit()
-                print(f"✅ AI processing completed for entry {entry_id}")
+                print(f"✅ AI processing completed for entry {entry_id}", flush=True)
             else:
-                print(f"❌ Entry {entry_id} not found")
+                print(f"❌ Entry {entry_id} not found", flush=True)
         finally:
             session.close()
     except Exception as e:
-        print(f"❌ AI processing error for entry {entry_id}: {str(e)}")
+        print(f"❌ AI processing error for entry {entry_id}: {str(e)}", flush=True)
+        _tb.print_exc()
         # Update entry with error message
         try:
             from database import SessionLocal
@@ -91,6 +98,17 @@ def process_audio_with_ai(entry_id: int, audio_path: str):
             session.close()
         except:
             pass
+    except BaseException as be:
+        print(f"💥 THREAD CRASH for entry {entry_id}: {be}", flush=True)
+        _tb.print_exc()
+
+
+def process_audio_with_ai(entry_id: int, audio_path: str):
+    """Background task wrapper — runs AI processing in a thread pool
+    so it doesn't block uvicorn's main thread (polling stays fast)."""
+    import concurrent.futures
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+    executor.submit(_run_ai_processing, entry_id, audio_path)
 
 @app.get("/")
 def root():
