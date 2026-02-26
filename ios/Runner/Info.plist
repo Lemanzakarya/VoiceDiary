@@ -61,6 +61,11 @@
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Bu uygulama ses günlüğü kaydetmeniz için mikrofon erişimine ihtiyaç duyar.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
