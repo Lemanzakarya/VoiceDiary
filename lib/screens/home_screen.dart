@@ -7,6 +7,7 @@ import '../providers/diary_provider.dart';
 import '../services/audio_player_service.dart';
 import 'recording_screen.dart';
 import 'entry_detail_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,18 +19,24 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   AudioPlayerService? _quickPlayer;
   int? _playingEntryId;
+  bool _isSearching = false;
+  String? _activeFilter;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DiaryProvider>().loadEntries();
+      final provider = context.read<DiaryProvider>();
+      provider.loadEntries();
+      provider.checkBackend();
     });
   }
 
   @override
   void dispose() {
     _quickPlayer?.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -153,24 +160,84 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ses Günlüğüm'),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Kayıtlarda ara...',
+                  border: InputBorder.none,
+                ),
+                onChanged: (query) {
+                  context.read<DiaryProvider>().searchEntries(query);
+                },
+              )
+            : const Text('Ses Günlüğüm'),
         actions: [
+          // Search toggle
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => context.read<DiaryProvider>().loadEntries(),
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) {
+                  _searchController.clear();
+                  context.read<DiaryProvider>().loadEntries();
+                }
+              });
+            },
+          ),
+          // Backend status indicator
+          Consumer<DiaryProvider>(
+            builder: (context, provider, _) {
+              return Tooltip(
+                message: provider.backendAvailable
+                    ? 'AI Sunucusu: Bağlı'
+                    : 'AI Sunucusu: Bağlantı yok',
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Icons.cloud,
+                    color: provider.backendAvailable
+                        ? Colors.green
+                        : Colors.grey[400],
+                    size: 20,
+                  ),
+                ),
+              );
+            },
+          ),
+          // Settings
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
           ),
         ],
       ),
-      body: Consumer<DiaryProvider>(
-        builder: (context, provider, _) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (provider.entries.isEmpty) {
-            return _buildEmptyState();
-          }
-          return _buildEntriesList(provider.entries);
-        },
+      body: Column(
+        children: [
+          // Sentiment filter chips
+          _buildFilterChips(),
+          // Entry list
+          Expanded(
+            child: Consumer<DiaryProvider>(
+              builder: (context, provider, _) {
+                if (provider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (provider.entries.isEmpty) {
+                  return _buildEmptyState();
+                }
+                return _buildEntriesList(provider.entries);
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _navigateToRecording,
@@ -178,6 +245,40 @@ class _HomeScreenState extends State<HomeScreen> {
         label: const Text('Yeni Kayıt'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    final filters = [
+      (label: 'Tümü', value: null as String?, icon: '📋'),
+      (label: 'Olumlu', value: 'POSITIVE' as String?, icon: '😊'),
+      (label: 'Olumsuz', value: 'NEGATIVE' as String?, icon: '😔'),
+      (label: 'Nötr', value: 'neutral' as String?, icon: '😐'),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: filters.map((f) {
+          final isSelected = _activeFilter == f.value;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              selected: isSelected,
+              label: Text('${f.icon} ${f.label}'),
+              onSelected: (_) {
+                setState(() {
+                  _activeFilter = f.value;
+                });
+                context.read<DiaryProvider>().filterBySentiment(_activeFilter);
+              },
+              selectedColor: Colors.blue.withValues(alpha: 0.2),
+              checkmarkColor: Colors.blue,
+            ),
+          );
+        }).toList(),
       ),
     );
   }
