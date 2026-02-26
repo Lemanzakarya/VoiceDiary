@@ -8,6 +8,3 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-dotenv==1.0.0
 requests==2.31.0
-openai-whisper==20231117
-transformers==4.36.2
-torch==2.1.2

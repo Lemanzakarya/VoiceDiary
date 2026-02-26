@@ -26,10 +26,15 @@ class RecordingService {
   // Start recording - assumes permission is already granted
   Future<bool> startRecording() async {
     try {
-      // Generate file path
-      final directory = await getApplicationDocumentsDirectory();
+      // Use Application Support directory – invisible in iOS Files app
+      final directory = await getApplicationSupportDirectory();
+      // Ensure recordings sub-folder exists
+      final recordingsDir = Directory('${directory.path}/recordings');
+      if (!await recordingsDir.exists()) {
+        await recordingsDir.create(recursive: true);
+      }
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      _currentRecordingPath = '${directory.path}/recording_$timestamp.m4a';
+      _currentRecordingPath = '${recordingsDir.path}/recording_$timestamp.m4a';
 
       // Start recording
       await _audioRecorder.start(
@@ -57,14 +62,30 @@ class RecordingService {
         return null;
       }
 
-      final path = await _audioRecorder.stop();
+      // Mark as not recording BEFORE stopping the encoder
+      // so no more audio data is buffered.
       _isRecording = false;
 
+      final path = await _audioRecorder.stop();
+
+      // Give the OS a moment to flush the file to disk
+      await Future.delayed(const Duration(milliseconds: 300));
+
       if (path != null && await File(path).exists()) {
-        return path;
+        // Verify file is fully written (size > 0)
+        final fileSize = await File(path).length();
+        if (fileSize > 0) {
+          return path;
+        }
       }
 
-      return _currentRecordingPath;
+      // Fallback to the path we set at start
+      if (_currentRecordingPath != null &&
+          await File(_currentRecordingPath!).exists()) {
+        return _currentRecordingPath;
+      }
+
+      return null;
     } catch (e) {
       print('Error stopping recording: $e');
       _isRecording = false;
