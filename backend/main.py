@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 from database import get_session, init_db
 from models import DiaryEntry
+from ai_service import get_ai_service
 
 load_dotenv()
 
@@ -40,6 +41,56 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 def startup():
     init_db()
     print("✅ Database initialized")
+    
+    # Initialize AI Service
+    try:
+        get_ai_service()
+        print("✅ AI Service initialized")
+    except Exception as e:
+        print(f"⚠️  AI Service initialization failed: {e}")
+        print("   API will work without AI features")
+
+def process_audio_with_ai(entry_id: int, audio_path: str):
+    """Background task to process audio with AI"""
+    try:
+        print(f"🤖 Starting AI processing for entry {entry_id}")
+        
+        # Get AI service
+        ai_service = get_ai_service()
+        
+        # Process audio
+        ai_results = ai_service.process_audio_full(audio_path)
+        
+        # Update database entry (create new session for background task)
+        from database import SessionLocal
+        session = SessionLocal()
+        try:
+            entry = session.query(DiaryEntry).filter(DiaryEntry.id == entry_id).first()
+            if entry:
+                entry.transcription_text = ai_results["transcription_text"]
+                entry.sentiment_label = ai_results["sentiment_label"]
+                entry.sentiment_score = ai_results["sentiment_score"]
+                entry.ai_feedback = ai_results["ai_feedback"]
+                session.commit()
+                print(f"✅ AI processing completed for entry {entry_id}")
+            else:
+                print(f"❌ Entry {entry_id} not found")
+        finally:
+            session.close()
+    except Exception as e:
+        print(f"❌ AI processing error for entry {entry_id}: {str(e)}")
+        # Update entry with error message
+        try:
+            from database import SessionLocal
+            session = SessionLocal()
+            entry = session.query(DiaryEntry).filter(DiaryEntry.id == entry_id).first()
+            if entry:
+                entry.transcription_text = "AI analizi başarısız oldu."
+                entry.ai_feedback = f"Analiz hatası: {str(e)}"
+                session.commit()
+            session.close()
+        except:
+            pass
 
 @app.get("/")
 def root():
@@ -51,12 +102,13 @@ def root():
 
 @app.post("/upload-audio")
 def upload_audio(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     session: Session = Depends(get_session)
 ):
     """
     Upload audio file and create diary entry.
-    Later, this will trigger AI analysis pipeline.
+    Triggers AI analysis in background.
     """
     # Validate file extension
     file_ext = os.path.splitext(file.filename)[1].lower()
@@ -96,8 +148,15 @@ def upload_audio(
         session.commit()
         session.refresh(new_entry)
         
+        # Trigger AI processing in background
+        background_tasks.add_task(
+            process_audio_with_ai,
+            new_entry.id,
+            file_path
+        )
+        
         return {
-            "message": "Audio uploaded successfully",
+            "message": "Audio uploaded successfully. AI analysis started.",
             "entry": new_entry.to_dict()
         }
     except Exception as e:
@@ -199,4 +258,4 @@ def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
