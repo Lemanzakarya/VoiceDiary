@@ -1,5 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/diary_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../services/database_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -70,6 +75,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 24),
 
+          // Appearance
+          _buildSectionTitle('Görünüm'),
+          Card(
+            child: Consumer<ThemeProvider>(
+              builder: (context, themeProvider, _) {
+                return SwitchListTile(
+                  secondary: Icon(
+                    themeProvider.isDarkMode
+                        ? Icons.dark_mode
+                        : Icons.light_mode,
+                    color: themeProvider.isDarkMode
+                        ? Colors.amber
+                        : Colors.orange,
+                  ),
+                  title: const Text('Karanlık Mod'),
+                  subtitle: Text(
+                    themeProvider.isDarkMode ? 'Açık' : 'Kapalı',
+                  ),
+                  value: themeProvider.isDarkMode,
+                  onChanged: (_) => themeProvider.toggleTheme(),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+
           // App Info
           _buildSectionTitle('Uygulama Bilgisi'),
           Card(
@@ -85,9 +116,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   leading: Icon(Icons.memory, color: Colors.purple),
                   title: Text('AI Modelleri'),
                   subtitle: Text(
-                    '• Whisper (Ses → Metin)\n'
-                    '• DistilBERT (Duygu Analizi)\n'
-                    '• GPT-2 (Geri Bildirim)',
+                    '• Whisper Large V3 Turbo (Ses → Metin)\n'
+                    '• Qwen 2.5-72B (Duygu Analizi)\n'
+                    '• Qwen 2.5-72B (AI Geri Bildirim)',
                   ),
                 ),
                 const Divider(height: 1),
@@ -197,12 +228,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (confirmed == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tüm veriler silindi'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      try {
+        // Delete all audio files first
+        final dbService = DatabaseService();
+        final entries = await dbService.getAllEntries();
+        for (final entry in entries) {
+          try {
+            final file = File(entry.audioFilePath);
+            if (await file.exists()) {
+              await file.delete();
+            }
+          } catch (_) {}
+        }
+
+        // Delete all database entries
+        await dbService.deleteAllEntries();
+
+        // Reload the provider to reflect empty state
+        if (mounted) {
+          context.read<DiaryProvider>().loadEntries();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tüm veriler başarıyla silindi'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Silme hatası: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 }

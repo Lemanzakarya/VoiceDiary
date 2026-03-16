@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/diary_entry.dart';
@@ -91,15 +90,7 @@ class _ProcessingScreenState extends State<ProcessingScreen>
       final entryData = uploadResult['entry'] as Map<String, dynamic>;
       _backendEntryId = entryData['id'] as int;
 
-      // Clean up local audio file after successful upload
-      try {
-        final localFile = File(widget.audioFilePath);
-        if (await localFile.exists()) {
-          await localFile.delete();
-        }
-      } catch (_) {
-        // Non-critical – ignore cleanup errors
-      }
+      // Keep local audio file for offline playback
 
       // Step 2: Wait for AI processing (poll)
       setState(() {

@@ -127,8 +127,18 @@ SQLite database (`voice_diary.db`) is automatically created on first run.
 
 Audio files are stored in `./uploads/` directory.
 
-## Next Steps (Faz 3)
+## AI Pipeline
 
-- Integrate Hugging Face API for Speech-to-Text
-- Add Sentiment Analysis
-- Add AI Feedback Generation
+The backend processes audio in a background thread using the Hugging Face Inference API:
+
+1. **Speech-to-Text** — OpenAI Whisper Large V3 Turbo
+2. **Acoustic Analysis** — Custom ffmpeg-based feature extraction (RMS, ZCR, energy variation)
+3. **Sentiment Analysis** — Qwen 2.5-72B-Instruct (text + voice cues combined)
+4. **AI Feedback** — Qwen 2.5-72B-Instruct (empathetic Turkish response)
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `HF_API_TOKEN` | Hugging Face API token ([get one free](https://huggingface.co/settings/tokens)) |
+| `FFMPEG_PATH` | (Optional) Path to ffmpeg binary — auto-detected if not set |

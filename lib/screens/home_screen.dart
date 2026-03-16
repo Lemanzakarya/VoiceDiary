@@ -8,6 +8,7 @@ import '../services/audio_player_service.dart';
 import 'recording_screen.dart';
 import 'entry_detail_screen.dart';
 import 'settings_screen.dart';
+import 'statistics_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -156,6 +157,19 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  String _getSentimentTurkish(String? sentiment) {
+    switch (sentiment?.toLowerCase()) {
+      case 'positive':
+        return 'Olumlu';
+      case 'negative':
+        return 'Olumsuz';
+      case 'neutral':
+        return 'Nötr';
+      default:
+        return sentiment ?? '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -207,6 +221,17 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
+          // Statistics
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StatisticsScreen()),
+              );
+            },
+            tooltip: 'İstatistikler',
+          ),
           // Settings
           IconButton(
             icon: const Icon(Icons.settings),
@@ -252,8 +277,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildFilterChips() {
     final filters = [
       (label: 'Tümü', value: null as String?, icon: '📋'),
-      (label: 'Olumlu', value: 'POSITIVE' as String?, icon: '😊'),
-      (label: 'Olumsuz', value: 'NEGATIVE' as String?, icon: '😔'),
+      (label: 'Olumlu', value: 'positive' as String?, icon: '😊'),
+      (label: 'Olumsuz', value: 'negative' as String?, icon: '😔'),
       (label: 'Nötr', value: 'neutral' as String?, icon: '😐'),
     ];
 
@@ -358,7 +383,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(entry.sentimentEmoji, style: const TextStyle(fontSize: 16)),
                           const SizedBox(width: 4),
                           Text(
-                            entry.sentimentLabel!,
+                            _getSentimentTurkish(entry.sentimentLabel),
                             style: TextStyle(
                               color: _getSentimentColor(entry.sentimentLabel),
                               fontWeight: FontWeight.bold,

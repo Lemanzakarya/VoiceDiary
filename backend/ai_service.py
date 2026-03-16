@@ -13,6 +13,7 @@ import os
 import time
 import math
 import struct
+import shutil
 import subprocess
 import requests
 import urllib3
@@ -26,8 +27,20 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 WHISPER_MODEL = "openai/whisper-large-v3-turbo"
 CHAT_MODEL = "Qwen/Qwen2.5-72B-Instruct"
 
-# ffmpeg absolute path (nohup/background processes may not have /opt/homebrew/bin in PATH)
-FFMPEG_PATH = "/opt/homebrew/bin/ffmpeg"
+# ffmpeg path: try env var, then system PATH, then common locations
+def _find_ffmpeg() -> str:
+    env_path = os.getenv("FFMPEG_PATH")
+    if env_path and os.path.isfile(env_path):
+        return env_path
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    for candidate in ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"]:
+        if os.path.isfile(candidate):
+            return candidate
+    return "ffmpeg"  # fallback — hope it's in PATH
+
+FFMPEG_PATH = _find_ffmpeg()
 
 # HF Inference API base for raw requests (whisper needs custom Content-Type)
 HF_API_URL = "https://router.huggingface.co/hf-inference/models"
